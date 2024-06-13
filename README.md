@@ -25,6 +25,8 @@ and then run
 go install github.com/rxx/od_tools/sim@latest
 ```
 
+If `@latest` does not work, try to include specific version as `@v1.0.2-sim`
+
 it installs to `GOPATH/bin` with a name `sim`.
 
 Rename it whatever you like.

@@ -4,7 +4,7 @@ on:
       - "v*.*.*"
 
 permissions:
-    contents: write
+  contents: write
 
 jobs:
   releases-matrix:
@@ -19,14 +19,14 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-    - uses: actions/checkout@v4
-    - uses: wangyoucao577/go-release-action@v1
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        goos: ${{ matrix.goos }}
-        goarch: ${{ matrix.goarch }}
-        goversion: "1.21"
-        project_path: "./app"
-        binary_name: "od_sim"
-        overwrite: true
-        upload: true
+      - uses: actions/checkout@v4
+      - uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          goversion: "1.21"
+          project_path: "./sim"
+          binary_name: "sim"
+          overwrite: true
+          upload: true
