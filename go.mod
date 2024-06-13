@@ -1,4 +1,4 @@
-module github.com/rxx/od_sim
+module github.com/rxx/od_tools
 
 go 1.21.8
 
