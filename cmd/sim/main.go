@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+  "github.com/rxx/od_tools/pkg/sim"
 )
 
 var cmdVars *FlagSetVars
