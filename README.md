@@ -22,7 +22,7 @@ To install `go` check [instructions here](https://go.dev/doc/install)
 and then run
 
 ```
-go install github.com/rxx/od_tools/sim@latest
+go install github.com/rxx/od_tools/cmd/sim@latest
 ```
 
 If `@latest` does not work, try to include specific version as `@v1.0.2-sim`
