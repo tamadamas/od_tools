@@ -92,7 +92,7 @@ func helloStorage(ctx context.Context, e event.Event) error {
 	  }
     
 	// Upload to output bucket
-	outputBucketName := "your-output-bucket"
+	outputBucketName := "od_sim_output"
 	outputObjectName := "log-" + data.Name 
 
 	wc := client.Bucket(outputBucketName).Object(outputObjectName).NewWriter(ctx)
