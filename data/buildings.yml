@@ -1,0 +1,42 @@
+buildings:
+  default:
+    jobs: 20
+    people: 15
+    can_be_increased: true
+  alchemy:
+    platinum: 45
+    land: plain
+  home:
+    people: 30
+    jobs: 0
+    can_be_increased: true
+    land: race
+  barrack:
+    people: 36
+    jobs: 0
+    can_be_increased: false
+    land: hill
+  factory:
+    # Reduces construction cost -5% max 50%
+    jobs: 25
+    can_be_increased: true
+    land: hill
+  diamond_mine:
+    land: cavern
+    gems: 15
+  dock:
+    land: water
+    food: 40
+    boat: 0.05
+  farm:
+    food: 80
+    land: plain
+  lumberyard:
+    land: forest
+    lumber: 50
+  ore_mine:
+    land: mountain
+    ore: 60
+  tower:
+    mana: 25
+    land: swamp
