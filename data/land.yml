@@ -1,0 +1,59 @@
+plain:
+  buildings:
+    - alchemy
+    - farm
+    - masonry
+    - smithy
+  races:
+    - human
+    - nomad
+    - troll
+mountain:
+  buildings:
+    - gryphon nest
+    - ore mine
+  races:
+    - dwarf
+    - gnome
+    - icekin
+swamp:
+  buildings:
+    - temple
+    - tower
+    - wizard guild
+  races:
+    - nox
+    - spirit
+    - vampire
+    - undead
+cavern:
+  buildings:
+    - diamond mine
+    - school
+  races:
+    - dark elf
+    - firewalker
+    - lycanthrope
+forest:
+  buildings:
+    - lumberyard
+  races:
+    - orc
+    - sylvan
+    - wood elf
+hill:
+  buildings:
+    - barracks
+    - factory
+    - guard tower
+    - shrine
+  races:
+    - goblin
+    - halfling
+    - kobold
+water:
+  buildings:
+    - dock
+  races:
+    - lizardfolk
+    - merfolk
