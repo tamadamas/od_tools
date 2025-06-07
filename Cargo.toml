@@ -3,4 +3,27 @@ name = "od_tools"
 version = "0.1.0"
 edition = "2024"
 
+[patch.crates-io]
+# Temporary fix while waiting for merging https://github.com/tafia/calamine/pull/506
+calamine = { git = "https://github.com/prophittcorey/calamine", branch = "fix/zip-3.0" }
+
 [dependencies]
+# For reading .xlsx/.xlsm files
+calamine = { version = "0.27.0", features = ["chrono"] }
+
+# For date and time manipulation
+chrono = "0.4.41"
+
+# For parsing command-line arguments
+clap = { version = "4.5.39", features = ["derive"] }
+
+derive = "1.0.0"
+regex = "1.11.1"
+
+# Serialize/deserialize
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.140"
+
+# For robust error handling
+thiserror = "2.0.12"
+
