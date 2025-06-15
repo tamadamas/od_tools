@@ -1,9 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
-mod error;
 mod generator;
-pub use error::AppError;
 use generator::GameLogGenerator;
 
 #[derive(Parser, Debug)]
@@ -27,11 +25,11 @@ enum Commands {
 
         /// Set a specific hour to process
         #[arg(long)]
-        hour: Option<u32>,
+        hour: Option<usize>,
     },
 }
 
-fn main() -> Result<(), AppError> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {

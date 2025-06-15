@@ -1,34 +1,170 @@
-use crate::error::AppError;
-use calamine::{Xlsx, open_workbook};
+use calamine::{Data, Reader, Xlsx, XlsxError, open_workbook};
 use std::{
+    fmt,
     fs::File,
     io::BufReader,
     path::{Path, PathBuf},
 };
+// Using the phf crate for compile-time generated hash maps.
+// This is more efficient for static maps than std::collections::HashMap.
+use phf::phf_map;
 
-const LAST_HOUR: u32 = 73;
+const LAST_HOUR: usize = 73;
+const EMPTY_RATE: &str = "Draftrate";
 
-// const OVERVIEW_SHEET: &str = "Overview";
-// const IMPS_SHEET: &str = "Imps";
+// Game section names (string constants)
+pub const OVERVIEW: &str = "Overview";
+pub const POPULATION: &str = "Population";
+pub const PRODUCTION: &str = "Production";
+pub const CONSTRUCTION: &str = "Construction";
+pub const EXPLORE: &str = "Explore";
+pub const REZONE: &str = "Rezone";
+pub const MILITARY: &str = "Military";
+pub const MAGIC: &str = "Magic";
+pub const TECHS: &str = "Techs";
+pub const IMPS: &str = "Imps";
+pub const CONSTANTS: &str = "Constants";
+pub const RACES: &str = "Races";
 
-#[allow(dead_code)]
+// Magic spell names (string constants)
+pub const GAIAS_WATCH: &str = "Gaia's Watch";
+pub const MINING_STRENGTH: &str = "Mining Strength";
+pub const ARES_CALL: &str = "Ares' Call";
+pub const MIDAS_TOUCH: &str = "Midas Touch";
+pub const HARMONY: &str = "Harmony";
+
+pub const RACIAL_SPELL: &str = "Racial Spell";
+
+// Multiplier constants
+pub const PLAT_AWARDED_MULT: u8 = 4;
+pub const LAND_BONUS: u8 = 20;
+
+// Array of building names
+pub const BUILDING_NAMES: &'static [&'static str] = &[
+    "Homes",
+    "Alchemies",
+    "Farms",
+    "Smithies",
+    "Masonries",
+    "Lumber Yards",
+    "Ore Mines",
+    "Gryphon Nests",
+    "Factories",
+    "Guard Towers",
+    "Barracks",
+    "Shrines",
+    "Towers",
+    "Temples",
+    "Wizard Guilds",
+    "Diamond Mines",
+    "Schools",
+    "Docks",
+];
+
+// Maps for explore and rezone lands, using phf_map! for compile-time maps.
+// This provides O(1) average time complexity for lookups,
+// without the runtime overhead of constructing a HashMap.
+pub const EXPLORE_LANDS: phf::Map<&'static str, &'static str> = phf_map! {
+    "Plains" => "T",
+    "Forest" => "U",
+    "Mountains" => "V",
+    "Hills" => "W",
+    "Swamps" => "X",
+    "Caverns" => "Y",
+    "Water" => "Z",
+};
+
+pub const REZONE_LANDS: phf::Map<&'static str, &'static str> = phf_map! {
+    "Plains" => "L",
+    "Forest" => "M",
+    "Mountains" => "N",
+    "Hills" => "O",
+    "Swamps" => "P",
+    "Caverns" => "Q",
+    "Water" => "R",
+};
+
+#[derive(Debug, PartialEq, Clone)]
+enum CellValue {
+    Float(f64),
+    Int(i64),
+    String(String),
+    DateTime(chrono::NaiveDateTime),
+    Data(Data),
+    None,
+}
+
+// Implement Display for CellValue
+impl fmt::Display for CellValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CellValue::Float(val) => write!(f, "{:.2}", val),
+            CellValue::Int(val) => write!(f, "{}", val),
+            CellValue::String(val) => write!(f, "{}", val),
+            CellValue::DateTime(val) => write!(f, "{}", val),
+            CellValue::Data(val) => write!(f, "{}", val),
+            CellValue::None => write!(f, "None"),
+        }
+    }
+}
+
+impl From<f64> for CellValue {
+    fn from(val: f64) -> Self {
+        CellValue::Float(val)
+    }
+}
+
+impl From<i64> for CellValue {
+    fn from(val: i64) -> Self {
+        CellValue::Int(val)
+    }
+}
+
+impl From<&str> for CellValue {
+    fn from(val: &str) -> Self {
+        CellValue::String(val.to_string())
+    }
+}
+
+impl From<String> for CellValue {
+    fn from(val: String) -> Self {
+        CellValue::String(val)
+    }
+}
+
+impl From<chrono::NaiveDateTime> for CellValue {
+    fn from(val: chrono::NaiveDateTime) -> Self {
+        CellValue::DateTime(val)
+    }
+}
+
+impl From<Data> for CellValue {
+    fn from(val: Data) -> Self {
+        CellValue::Data(val)
+    }
+}
+
+impl CellValue {
+    fn is_none(&self) -> bool {
+        match self {
+            Self::None => true,
+            _ => false,
+        }
+    }
+}
+
 pub struct GameLogGenerator {
-    path: PathBuf,
     workbook: Xlsx<BufReader<File>>,
-    current_hour: u32,
-    sim_hour: u32,
+    current_hour: usize,
+    sim_hour: usize,
 }
 
 impl GameLogGenerator {
     /// Creates a new generator and loads the Excel file.
-    pub fn new(path: &Path) -> Result<Self, AppError> {
-        let workbook = open_workbook(path).map_err(|e| AppError::ExcelError {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
+    pub fn new(path: &Path) -> Result<Self, XlsxError> {
+        let workbook = open_workbook(path)?;
 
         Ok(Self {
-            path: path.to_path_buf(),
             workbook,
             current_hour: 0,
             sim_hour: 0,
@@ -37,157 +173,139 @@ impl GameLogGenerator {
 
     /// Sets the current hour, adjusting for the 0-based vs 1-based indexing
     /// and the 3-row header offset in the sim.
-    fn set_current_hour(&mut self, hr: u32) {
+    fn set_current_hour(&mut self, hr: usize) {
         self.current_hour = hr;
         self.sim_hour = hr + 3; // Sim rows are offset by 3
     }
 
     /// Main execution loop.
-    pub fn execute(&mut self, specific_hour: Option<u32>) -> Result<String, AppError> {
+    pub fn execute(&mut self, specific_hour: Option<usize>) -> Result<String, XlsxError> {
         let mut full_log = String::new();
 
         if let Some(hr) = specific_hour {
             self.set_current_hour(hr);
-            full_log.push_str(&self.execute_actions_for_current_hour()?);
-        } else {
-            for hr in 1..=LAST_HOUR {
-                self.set_current_hour(hr);
-                let hour_log = self.execute_actions_for_current_hour()?;
-                if !hour_log.is_empty() {
-                    full_log.push_str(&hour_log);
-                    full_log.push('\n');
-                }
+            return Ok(self.execute_actions_for_current_hour()?);
+        }
+
+        for hr in 1..=LAST_HOUR {
+            self.set_current_hour(hr);
+
+            let hour_log = self.execute_actions_for_current_hour()?;
+            if !hour_log.is_empty() {
+                full_log.push_str(&hour_log);
+                full_log.push('\n');
             }
         }
+
         Ok(full_log)
     }
 
     /// Executes all action methods for the currently set hour.
-    fn execute_actions_for_current_hour(&mut self) -> Result<String, AppError> {
-        Ok("done!".to_string())
+    fn execute_actions_for_current_hour(&mut self) -> Result<String, XlsxError> {
+        let mut output = String::new();
+
+        let actions = [
+            self.tick_action()?,
+            self.draft_rate_action()?,
+            // c.releaseUnitsAction,
+            // c.castMagicSpells,
+            // c.unlockTechAction,
+            // c.dailtyPlatinumAction,
+            // c.tradeResources,
+            // c.exploreAction,
+            // c.dailyLandAction,
+            // c.destroyBuildingsAction,
+            // c.rezoneAction,
+            // c.constructionAction,
+            // c.trainUnitsAction,
+            // c.improvementsAction,
+        ];
+
+        for action_result in actions.iter().filter(|s| !s.is_empty()) {
+            output.push_str(dbg!(action_result));
+
+            if !action_result.ends_with('\n') {
+                output.push('\n');
+            }
+        }
+
+        // Skip empty ticks
+        if output.ends_with("======\n") || output.is_empty() {
+            return Ok(String::new());
+        }
+
+        Ok(output)
     }
-    //     let mut output = String::new();
-
-    //     // In Rust, we can call methods directly. This is often cleaner
-    //     // than a vector of function pointers unless true dynamic dispatch is needed.
-    //     let actions = [
-    //         self.tick_action()?,
-    //         self.draft_rate_action()?,
-    //         self.construction_action()?, // Example action
-    //                                      // ... add other action calls here
-    //     ];
-
-    //     for action_result in actions.iter().filter(|s| !s.is_empty()) {
-    //         output.push_str(action_result);
-    //         if !action_result.ends_with('\n') {
-    //             output.push('\n');
-    //         }
-    //     }
-
-    //     // Skip empty ticks
-    //     if output.ends_with("======\n") || output.is_empty() {
-    //         return Ok(String::new());
-    //     }
-
-    //     Ok(output)
-    // }
 
     // --- Action Implementations ---
 
-    // fn tick_action(&self) -> Result<String, AppError> {
-    //     let date_str = self.read_value(OVERVIEW_SHEET, "B15")?;
-    //     let local_time_str = self.read_value_by_hour(IMPS_SHEET, "BY")?;
-    //     let dom_time_str = self.read_value_by_hour(IMPS_SHEET, "BZ")?;
+    fn tick_action(&mut self) -> Result<String, XlsxError> {
+        // let date_str = self.read_value(OVERVIEW, "B", 15)?;
 
-    //     // Use chrono for robust date/time parsing
-    //     let date = chrono::NaiveDate::parse_from_str(&date_str, "%m/%d/%Y")
-    //         .or_else(|_| chrono::NaiveDate::parse_from_str(&date_str, "%Y/%m/%d"))?;
+        let local_time_str = self.read_value_by_hour(IMPS, "BY")?;
+        let dom_time_str = self.read_value_by_hour(IMPS, "BZ")?;
 
-    //     let local_time = chrono::NaiveTime::parse_from_str(&local_time_str, "%H:%M")?;
-    //     let dom_time = chrono::NaiveTime::parse_from_str(&dom_time_str, "%H:%M")?;
+        Ok(format!(
+            "====== Protection Hour: {} ( Local Time: {} ) ( Domtime: {} ) ======\n",
+            self.current_hour, local_time_str, dom_time_str
+        ))
+    }
 
-    //     let local_datetime = chrono::NaiveDateTime::new(date, local_time);
-    //     let dom_datetime = chrono::NaiveDateTime::new(date, dom_time);
+    fn draft_rate_action(&mut self) -> Result<String, XlsxError> {
+        let mut current_rate = self.read_value_by_hour(MILITARY, "Y")?;
+        let previous_rate = self.read_value(MILITARY, "Z", self.sim_hour - 1)?;
 
-    //     Ok(format!(
-    //         "====== Protection Hour: {} ( Local Time: {} ) ( Domtime: {} ) ======\n",
-    //         self.current_hour,
-    //         local_datetime.format("%-I:%M:%S %p %-m/%-d/%Y"),
-    //         dom_datetime.format("%-I:%M:%S %p %-m/%-d/%Y")
-    //     ))
-    // }
+        if let CellValue::String(s) = &previous_rate {
+            if s == EMPTY_RATE && current_rate.is_none() {
+                current_rate = CellValue::Float(0.9);
+            }
+        }
 
-    // fn draft_rate_action(&self) -> Result<String, AppError> {
-    //     // ... implementation would be similar to Go, using read_value helpers ...
-    //     Ok(String::new()) // Placeholder
-    // }
+        if current_rate == previous_rate || current_rate.is_none() {
+            return Ok(String::new());
+        }
 
-    // fn construction_action(&self) -> Result<String, AppError> {
-    //     // Example showing iteration and string building
-    //     let mut built_items = Vec::new();
-    //     let building_names = ["Homes", "Alchemies", "Farms"]; // etc.
-    //     let cols = ["O", "P", "Q"]; // etc.
+        if let CellValue::Float(f) = current_rate {
+            current_rate = CellValue::Int((f * 100.0) as i64);
+        }
 
-    //     for (i, col) in cols.iter().enumerate() {
-    //         let value = self.read_int_by_hour("Construction", col)?;
-    //         if value > 0 {
-    //             built_items.push(format!("{} {}", value, building_names[i]));
-    //         }
-    //     }
+        Ok(format!("Draftrate changed to {}%\n", current_rate))
+    }
 
-    //     if built_items.is_empty() {
-    //         return Ok(String::new());
-    //     }
+    // Read value in row with a current hour as BY{symHour}
+    fn read_value_by_hour(&mut self, sheet: &str, column: &str) -> Result<CellValue, XlsxError> {
+        Ok(self.read_value(sheet, column, self.sim_hour)?)
+    }
 
-    //     let plat_cost = self.read_int_by_hour("Construction", "AQ")?;
-    //     let lumber_cost = self.read_int_by_hour("Construction", "AR")?;
+    // Read value from cell in format B15
+    fn read_value(
+        &mut self,
+        sheet: &str,
+        column: &str,
+        row: usize,
+    ) -> Result<CellValue, XlsxError> {
+        let range = self.workbook.worksheet_range(sheet)?;
 
-    //     Ok(format!(
-    //         "Construction of {} started at a cost of {} platinum and {} lumber.\n",
-    //         built_items.join(", "),
-    //         plat_cost,
-    //         lumber_cost
-    //     ))
-    // }
+        let column_index = column.chars().fold(0, |acc, c| {
+            acc * 26 + (c.to_ascii_uppercase() as u8 - b'A' + 1) as usize
+        }) - 1;
 
-    // --- Helper Functions ---
+        let cell_value = range.get((row - 1, column_index));
 
-    // fn get_range(&self, sheet_name: &str) -> Result<Range<DataType>, AppError> {
-    //     self.workbook
-    //         .worksheet_range(sheet_name)
-    //         .ok_or_else(|| AppError::Custom(format!("Sheet '{}' not found", sheet_name)))?
-    //         .map_err(AppError::from)
-    // }
-
-    // fn read_value(&self, sheet: &str, cell_ref: &str) -> Result<String, AppError> {
-    //     let (row, col) = calamine::CellReference::from_str(cell_ref)
-    //         .map_err(|e| AppError::Custom(e.to_string()))?
-    //         .to_tuple();
-
-    //     let range = self.get_range(sheet)?;
-    //     let cell = range.get((row, col)).ok_or(AppError::CellNotFound {
-    //         sheet: sheet.to_string(),
-    //         cell: cell_ref.to_string(),
-    //     })?;
-
-    //     Ok(cell.to_string().trim().to_string())
-    // }
-
-    // fn read_value_by_hour(&self, sheet: &str, col: &str) -> Result<String, AppError> {
-    //     self.read_value(sheet, &format!("{}{}", col, self.sim_hour))
-    // }
-
-    // fn read_int_by_hour(&self, sheet: &str, col: &str) -> Result<i64, AppError> {
-    //     let val_str = self.read_value_by_hour(sheet, col)?;
-    //     if val_str.is_empty() {
-    //         return Ok(0);
-    //     }
-    //     val_str
-    //         .replace(',', "")
-    //         .parse::<i64>()
-    //         .map_err(|e| AppError::ParseInt {
-    //             value: val_str,
-    //             source: e,
-    //         })
-    // }
+        match cell_value {
+            Some(Data::Float(f)) => Ok(CellValue::from(*f)),
+            Some(Data::Int(i)) => Ok(CellValue::from(*i)),
+            Some(Data::String(s)) => {
+                if s.trim().len() == 0 {
+                    Ok(CellValue::None)
+                } else {
+                    Ok(CellValue::from(s.clone()))
+                }
+            }
+            Some(Data::DateTime(s)) => Ok(CellValue::from(s.as_datetime().unwrap())),
+            Some(Data::Empty) => Ok(CellValue::None),
+            Some(s) => Ok(CellValue::from(s.clone())),
+            None => Ok(CellValue::None),
+        }
+    }
 }
