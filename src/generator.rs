@@ -1,10 +1,5 @@
-use calamine::{Data, Reader, Xlsx, XlsxError, open_workbook};
-use std::{
-    fmt,
-    fs::File,
-    io::BufReader,
-    path::{Path, PathBuf},
-};
+use calamine::{Data, DataType, Reader, Xlsx, XlsxError, open_workbook};
+use std::{fs::File, io::BufReader, path::Path};
 // Using the phf crate for compile-time generated hash maps.
 // This is more efficient for static maps than std::collections::HashMap.
 use phf::phf_map;
@@ -83,75 +78,6 @@ pub const REZONE_LANDS: phf::Map<&'static str, &'static str> = phf_map! {
     "Caverns" => "Q",
     "Water" => "R",
 };
-
-#[derive(Debug, PartialEq, Clone)]
-enum CellValue {
-    Float(f64),
-    Int(i64),
-    String(String),
-    DateTime(chrono::NaiveDateTime),
-    Data(Data),
-    None,
-}
-
-// Implement Display for CellValue
-impl fmt::Display for CellValue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            CellValue::Float(val) => write!(f, "{:.2}", val),
-            CellValue::Int(val) => write!(f, "{}", val),
-            CellValue::String(val) => write!(f, "{}", val),
-            CellValue::DateTime(val) => write!(f, "{}", val),
-            CellValue::Data(val) => write!(f, "{}", val),
-            CellValue::None => write!(f, "None"),
-        }
-    }
-}
-
-impl From<f64> for CellValue {
-    fn from(val: f64) -> Self {
-        CellValue::Float(val)
-    }
-}
-
-impl From<i64> for CellValue {
-    fn from(val: i64) -> Self {
-        CellValue::Int(val)
-    }
-}
-
-impl From<&str> for CellValue {
-    fn from(val: &str) -> Self {
-        CellValue::String(val.to_string())
-    }
-}
-
-impl From<String> for CellValue {
-    fn from(val: String) -> Self {
-        CellValue::String(val)
-    }
-}
-
-impl From<chrono::NaiveDateTime> for CellValue {
-    fn from(val: chrono::NaiveDateTime) -> Self {
-        CellValue::DateTime(val)
-    }
-}
-
-impl From<Data> for CellValue {
-    fn from(val: Data) -> Self {
-        CellValue::Data(val)
-    }
-}
-
-impl CellValue {
-    fn is_none(&self) -> bool {
-        match self {
-            Self::None => true,
-            _ => false,
-        }
-    }
-}
 
 pub struct GameLogGenerator {
     workbook: Xlsx<BufReader<File>>,
@@ -243,10 +169,18 @@ impl GameLogGenerator {
     // --- Action Implementations ---
 
     fn tick_action(&mut self) -> Result<String, XlsxError> {
-        // let date_str = self.read_value(OVERVIEW, "B", 15)?;
+        let local_time_col = self.column_str_int("BY");
 
-        let local_time_str = self.read_value_by_hour(IMPS, "BY")?;
-        let dom_time_str = self.read_value_by_hour(IMPS, "BZ")?;
+        let local_time_str = self
+            .read_value_by_hour(IMPS, local_time_col)?
+            .as_datetime()
+            .unwrap()
+            .to_string();
+        let dom_time_str = self
+            .read_value_by_hour(IMPS, local_time_col + 1)?
+            .as_datetime()
+            .unwrap()
+            .to_string();
 
         Ok(format!(
             "====== Protection Hour: {} ( Local Time: {} ) ( Domtime: {} ) ======\n",
@@ -255,28 +189,70 @@ impl GameLogGenerator {
     }
 
     fn draft_rate_action(&mut self) -> Result<String, XlsxError> {
-        let mut current_rate = self.read_value_by_hour(MILITARY, "Y")?;
-        let previous_rate = self.read_value(MILITARY, "Z", self.sim_hour - 1)?;
+        let current_rate_col = self.column_str_int("Y");
 
-        if let CellValue::String(s) = &previous_rate {
-            if s == EMPTY_RATE && current_rate.is_none() {
-                current_rate = CellValue::Float(0.9);
-            }
+        let mut current_rate = self.read_value_by_hour(MILITARY, current_rate_col)?;
+        let previous_rate = self.read_value(MILITARY, current_rate_col + 1, self.sim_hour - 1)?;
+
+        if previous_rate == EMPTY_RATE && current_rate.is_empty() {
+            current_rate = Data::Float(0.9);
         }
 
-        if current_rate == previous_rate || current_rate.is_none() {
+        if current_rate == previous_rate || current_rate.is_empty() {
             return Ok(String::new());
         }
 
-        if let CellValue::Float(f) = current_rate {
-            current_rate = CellValue::Int((f * 100.0) as i64);
-        }
+        let rate: i64 = match current_rate {
+            Data::Float(f) => (f * 100.0) as i64,
+            _ => return Ok(String::new()),
+        };
 
-        Ok(format!("Draftrate changed to {}%\n", current_rate))
+        Ok(format!("Draftrate changed to {}%\n", rate))
     }
 
     fn release_units_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        // Read unit names and unit counts
+        let ay_col = self.column_str_int("AY");
+
+        let mut sb = String::from("You successfully released ");
+
+        let mut added_items = 0;
+
+        for col in ay_col..ay_col + 8 {
+            let name = self.read_value(MILITARY, col, 2)?;
+            let value = self.read_value_by_hour(MILITARY, col)?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ")
+            }
+
+            sb.push_str(&format!("{} {}", value, name));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            sb = String::new();
+        } else {
+            sb.push_str(".\n");
+        }
+
+        return Ok(sb);
+
+        // // Read draftees count from AW column
+        // let draftees = self.read_value_by_hour(MILITARY, "AW")?;
+
+        // if draftees.is_int() && draftees > 0 {
+        //     sb.push_str(&format!(
+        //         "You successfully released {} draftees into the peasantry.\n",
+        //         draftees.as_i64()
+        //     ));
+        // }
+
+        // Ok(cb)
     }
 
     fn cast_magic_spells_action(&mut self) -> Result<String, XlsxError> {
@@ -324,39 +300,24 @@ impl GameLogGenerator {
     }
 
     // Read value in row with a current hour as BY{symHour}
-    fn read_value_by_hour(&mut self, sheet: &str, column: &str) -> Result<CellValue, XlsxError> {
+    fn read_value_by_hour(&mut self, sheet: &str, column: usize) -> Result<Data, XlsxError> {
         Ok(self.read_value(sheet, column, self.sim_hour)?)
     }
 
     // Read value from cell in format B15
-    fn read_value(
-        &mut self,
-        sheet: &str,
-        column: &str,
-        row: usize,
-    ) -> Result<CellValue, XlsxError> {
+    fn read_value(&mut self, sheet: &str, column: usize, row: usize) -> Result<Data, XlsxError> {
         let range = self.workbook.worksheet_range(sheet)?;
-
-        let column_index = column.chars().fold(0, |acc, c| {
-            acc * 26 + (c.to_ascii_uppercase() as u8 - b'A' + 1) as usize
-        }) - 1;
-
-        let cell_value = range.get((row - 1, column_index));
+        let cell_value = range.get((row - 1, column - 1));
 
         match cell_value {
-            Some(Data::Float(f)) => Ok(CellValue::from(*f)),
-            Some(Data::Int(i)) => Ok(CellValue::from(*i)),
-            Some(Data::String(s)) => {
-                if s.trim().len() == 0 {
-                    Ok(CellValue::None)
-                } else {
-                    Ok(CellValue::from(s.clone()))
-                }
-            }
-            Some(Data::DateTime(s)) => Ok(CellValue::from(s.as_datetime().unwrap())),
-            Some(Data::Empty) => Ok(CellValue::None),
-            Some(s) => Ok(CellValue::from(s.clone())),
-            None => Ok(CellValue::None),
+            Some(value) => Ok(value.clone()),
+            None => Ok(Data::Empty),
         }
+    }
+
+    fn column_str_int(&self, column: &str) -> usize {
+        column.chars().fold(0, |acc, c| {
+            acc * 26 + (c.to_ascii_uppercase() as u8 - b'A' + 1) as usize
+        })
     }
 }
