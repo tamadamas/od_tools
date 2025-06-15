@@ -1,4 +1,5 @@
 use calamine::{Data, DataType, Reader, Xlsx, XlsxError, open_workbook};
+use clap::value_parser;
 use std::{fs::File, io::BufReader, path::Path};
 // Using the phf crate for compile-time generated hash maps.
 // This is more efficient for static maps than std::collections::HashMap.
@@ -240,19 +241,19 @@ impl GameLogGenerator {
             sb.push_str(".\n");
         }
 
-        return Ok(sb);
-
         // // Read draftees count from AW column
-        // let draftees = self.read_value_by_hour(MILITARY, "AW")?;
+        let draftees = self.read_value_by_hour(MILITARY, ay_col - 1)?;
 
-        // if draftees.is_int() && draftees > 0 {
-        //     sb.push_str(&format!(
-        //         "You successfully released {} draftees into the peasantry.\n",
-        //         draftees.as_i64()
-        //     ));
-        // }
+        if draftees.is_empty() || draftees == 0 {
+            return Ok(sb);
+        }
 
-        // Ok(cb)
+        sb.push_str(&format!(
+            "You successfully released {} draftees into the peasantry.\n",
+            draftees
+        ));
+
+        Ok(sb)
     }
 
     fn cast_magic_spells_action(&mut self) -> Result<String, XlsxError> {
