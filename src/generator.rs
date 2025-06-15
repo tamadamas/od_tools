@@ -35,6 +35,24 @@ pub const RACIAL_SPELL: &str = "Racial Spell";
 pub const PLAT_AWARDED_MULT: u8 = 4;
 pub const LAND_BONUS: u8 = 20;
 
+pub const SPELLS: &[(&str, &str)] = &[
+    (GAIAS_WATCH, "G"),
+    (MINING_STRENGTH, "H"),
+    (ARES_CALL, "I"),
+    (MIDAS_TOUCH, "J"),
+    (HARMONY, "K"),
+    (RACIAL_SPELL, "L"),
+    (RACIAL_SPELL, "M"),
+    (RACIAL_SPELL, "N"),
+    (RACIAL_SPELL, "O"),
+    (RACIAL_SPELL, "P"),
+    (RACIAL_SPELL, "Q"),
+    (RACIAL_SPELL, "R"),
+    (RACIAL_SPELL, "S"),
+    (RACIAL_SPELL, "T"),
+    (RACIAL_SPELL, "U"),
+];
+
 // Array of building names
 pub const BUILDING_NAMES: &'static [&'static str] = &[
     "Homes",
@@ -241,7 +259,7 @@ impl GameLogGenerator {
             sb.push_str(".\n");
         }
 
-        // // Read draftees count from AW column
+        // // Read draftees count from AX column
         let draftees = self.read_value_by_hour(MILITARY, ay_col - 1)?;
 
         if draftees.is_empty() || draftees == 0 {
@@ -257,7 +275,23 @@ impl GameLogGenerator {
     }
 
     fn cast_magic_spells_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::new();
+        let col_y = self.column_str_int("Y");
+
+        let mana = self.read_value_by_hour(MAGIC, col_y)?;
+
+        for (spell_name, magic_col) in SPELLS {
+            let magic_data = self.read_value_by_hour(MAGIC, self.column_str_int(magic_col))?;
+
+            if !magic_data.is_empty() {
+                sb.push_str(&format!(
+                    "Your wizards successfully cast {} at a cost of {} mana.\n",
+                    spell_name, mana
+                ));
+            }
+        }
+
+        Ok(sb)
     }
 
     fn unlock_tech_action(&mut self) -> Result<String, XlsxError> {
