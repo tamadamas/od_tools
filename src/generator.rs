@@ -207,25 +207,28 @@ impl GameLogGenerator {
         let actions = [
             self.tick_action()?,
             self.draft_rate_action()?,
-            // c.releaseUnitsAction,
-            // c.castMagicSpells,
-            // c.unlockTechAction,
-            // c.dailtyPlatinumAction,
-            // c.tradeResources,
-            // c.exploreAction,
-            // c.dailyLandAction,
-            // c.destroyBuildingsAction,
-            // c.rezoneAction,
-            // c.constructionAction,
-            // c.trainUnitsAction,
-            // c.improvementsAction,
+            self.release_units_action()?,
+            self.cast_magic_spells_action()?,
+            self.unlock_tech_action()?,
+            self.daily_platinum_action()?,
+            self.trade_resources_action()?,
+            self.explore_action()?,
+            self.daily_land_action()?,
+            self.destroy_buildings_action()?,
+            self.rezone_action()?,
+            self.construction_action()?,
+            self.train_units_action()?,
+            self.improvements_action()?,
         ];
 
         for action_result in actions.iter().filter(|s| !s.is_empty()) {
-            output.push_str(dbg!(action_result));
+            // DEBUG code: remove after implementing all methods
+            if action_result != "not implemented yet" {
+                output.push_str(dbg!(action_result));
 
-            if !action_result.ends_with('\n') {
-                output.push('\n');
+                if !action_result.ends_with('\n') {
+                    output.push('\n');
+                }
             }
         }
 
@@ -270,6 +273,54 @@ impl GameLogGenerator {
         }
 
         Ok(format!("Draftrate changed to {}%\n", current_rate))
+    }
+
+    fn release_units_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn cast_magic_spells_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn unlock_tech_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn daily_platinum_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn trade_resources_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn explore_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn daily_land_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn destroy_buildings_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn rezone_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn construction_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn train_units_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
+    }
+
+    fn improvements_action(&mut self) -> Result<String, XlsxError> {
+        Ok("not implemented yet".to_owned())
     }
 
     // Read value in row with a current hour as BY{symHour}
