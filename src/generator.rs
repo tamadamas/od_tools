@@ -297,7 +297,7 @@ impl GameLogGenerator {
     fn unlock_tech_action(&mut self) -> Result<String, XlsxError> {
         let tech_unlocked = self.read_value_by_hour(TECHS, self.column_str_int("K"))?;
 
-        if tech_unlocked.is_empty() || tech_unlocked == 0 {
+        if tech_unlocked.is_empty() || tech_unlocked == 0.0 {
             return Ok(String::new());
         }
 
@@ -307,7 +307,20 @@ impl GameLogGenerator {
     }
 
     fn daily_platinum_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let plat_checked = self.read_value_by_hour(PRODUCTION, self.column_str_int("C"))?;
+
+        if plat_checked.is_empty() || plat_checked == 0 {
+            return Ok(String::new());
+        }
+
+        let population_value = self.read_value_by_hour(POPULATION, self.column_str_int("C"))?;
+
+        let platinum_awarded = population_value.as_i64().unwrap() * PLAT_AWARDED_MULT as i64;
+
+        Ok(format!(
+            "You have been awarded with {} platinum.\n",
+            platinum_awarded
+        ))
     }
 
     fn trade_resources_action(&mut self) -> Result<String, XlsxError> {
