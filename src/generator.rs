@@ -18,8 +18,6 @@ pub const MILITARY: &str = "Military";
 pub const MAGIC: &str = "Magic";
 pub const TECHS: &str = "Techs";
 pub const IMPS: &str = "Imps";
-pub const CONSTANTS: &str = "Constants";
-pub const RACES: &str = "Races";
 
 // Magic spell names (string constants)
 pub const GAIAS_WATCH: &str = "Gaia's Watch";
@@ -77,6 +75,10 @@ pub const BUILDING_NAMES: &[&str] = &[
 pub const DESTROY_BUILDING_COLUMNS: &[&str] = &[
     "BW", "BX", "BY", "BZ", "CA", "CB", "CD", "CE", "CF", "CG", "CH", "CI", "CJ", "CK", "CL", "CM",
     "CN", "CO",
+];
+
+pub const CREATE_BUILDING_COLUMNS: &[&str] = &[
+    "O", "P", "Q", "R", "S", "T", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE", "AF", "AG",
 ];
 
 // Maps for explore and rezone lands, using phf_map! for compile-time maps.
@@ -456,19 +458,130 @@ impl GameLogGenerator {
     }
 
     fn rezone_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let plat_cost = self.read_value_by_hour(REZONE, self.column_str_int("Y"))?;
+
+        if plat_cost.is_empty() || plat_cost == 0 {
+            return Ok(String::new());
+        }
+
+        let mut sb = format!(
+            "Rezoning begun at a cost of {} platinum. The changes in land are as following: ",
+            plat_cost
+        );
+
+        let mut added_items = 0u8;
+
+        for (land_type, col) in REZONE_LANDS.into_iter() {
+            let value = self.read_value_by_hour(REZONE, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, land_type));
+            added_items += 1;
+        }
+
+        sb.push_str(&format!(".\n"));
+
+        Ok(sb)
     }
 
     fn construction_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::from("Construction of ");
+        let mut added_items = 0u8;
+
+        for (index, col) in CREATE_BUILDING_COLUMNS.iter().enumerate() {
+            let name = BUILDING_NAMES[index];
+            let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, name));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            return Ok(String::new());
+        }
+
+        let plat_cost = self.read_value_by_hour(CONSTRUCTION, self.column_str_int("AQ"))?;
+        let lumber_cost = self.read_value_by_hour(CONSTRUCTION, self.column_str_int("AR"))?;
+
+        sb.push_str(&format!(
+            " started at a cost of {} platinum and {} lumber.\n",
+            plat_cost, lumber_cost
+        ));
+
+        Ok(sb)
     }
 
     fn train_units_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::from("Destruction of ");
+        let mut added_items = 0u8;
+
+        for (index, col) in DESTROY_BUILDING_COLUMNS.iter().enumerate() {
+            let name = BUILDING_NAMES[index];
+            let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, name));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            return Ok(String::new());
+        }
+
+        sb.push_str(&format!(" is complete.\n"));
+
+        Ok(String::new())
     }
 
     fn improvements_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::from("Destruction of ");
+        let mut added_items = 0u8;
+
+        for (index, col) in DESTROY_BUILDING_COLUMNS.iter().enumerate() {
+            let name = BUILDING_NAMES[index];
+            let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, name));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            return Ok(String::new());
+        }
+
+        sb.push_str(&format!(" is complete.\n"));
+
+        Ok(String::new())
     }
 
     // Read value in row with a current hour as BY{symHour}
