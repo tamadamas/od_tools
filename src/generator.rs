@@ -374,7 +374,37 @@ impl GameLogGenerator {
     }
 
     fn explore_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::from("Exploration for ");
+        let mut added_items = 0u8;
+
+        for (land_type, col) in EXPLORE_LANDS.into_iter() {
+            let value = self.read_value_by_hour(EXPLORE, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, land_type));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            return Ok(String::new());
+        }
+
+        let plat_cost = self.read_value_by_hour(EXPLORE, self.column_str_int("AH"))?;
+        let draftee_cost = self.read_value_by_hour(EXPLORE, self.column_str_int("AI"))?;
+
+        sb.push_str(&format!(
+            " begun at a cost of {} platinum and {} draftees.\n",
+            plat_cost, draftee_cost
+        ));
+
+        Ok(sb)
     }
 
     fn daily_land_action(&mut self) -> Result<String, XlsxError> {
