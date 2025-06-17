@@ -408,7 +408,18 @@ impl GameLogGenerator {
     }
 
     fn daily_land_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let land_bonus = self.read_value_by_hour(EXPLORE, self.column_str_int("S"))?;
+
+        if land_bonus.is_empty() || land_bonus == 0 {
+            return Ok(String::new());
+        }
+
+        let land_type = self.read_value(OVERVIEW, self.column_str_int("B"), 70)?;
+
+        Ok(format!(
+            "You have been awarded with {} {}.\n",
+            LAND_BONUS, land_type
+        ))
     }
 
     fn destroy_buildings_action(&mut self) -> Result<String, XlsxError> {
