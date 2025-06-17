@@ -324,7 +324,53 @@ impl GameLogGenerator {
     }
 
     fn trade_resources_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let plat_column = self.column_str_int("BC");
+
+        let plat_value = self.read_value_by_hour(PRODUCTION, plat_column)?; //BC
+        let lumber_value = self.read_value_by_hour(PRODUCTION, plat_column + 1)?; //BD
+        let ore_value = self.read_value_by_hour(PRODUCTION, plat_column + 2)?; //BE
+        let gems_value = self.read_value_by_hour(PRODUCTION, plat_column + 3)?; //BF
+
+        // No exchange happened
+        if plat_value.is_empty()
+            && lumber_value.is_empty()
+            && ore_value.is_empty()
+            && gems_value.is_empty()
+        {
+            return Ok(String::new());
+        }
+
+        let mut sb = String::new();
+        let mut traded_items: Vec<String> = Vec::new();
+        let mut received_items: Vec<String> = Vec::new();
+
+        let mut add_item = |item: &str, amount: Data| {
+            if let Some(amount_value) = amount.as_i64() {
+                if amount_value < 0 {
+                    traded_items.push(format!("{} {}", -amount_value, item));
+                } else if amount_value > 0 {
+                    received_items.push(format!("{} {}", amount_value, item));
+                }
+            }
+        };
+
+        add_item("platinum", plat_value);
+        add_item("lumber", lumber_value);
+        add_item("ore", ore_value);
+        add_item("gems", gems_value);
+
+        if traded_items.len() > 0 {
+            sb.push_str(&format!(
+                "{} have been traded for ",
+                traded_items.join(" and ")
+            ));
+        }
+
+        if received_items.len() > 0 {
+            sb.push_str(&format!("{}.\n", received_items.join(" and ")));
+        }
+
+        Ok(sb)
     }
 
     fn explore_action(&mut self) -> Result<String, XlsxError> {
