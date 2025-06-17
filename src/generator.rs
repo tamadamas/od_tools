@@ -295,7 +295,15 @@ impl GameLogGenerator {
     }
 
     fn unlock_tech_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let tech_unlocked = self.read_value_by_hour(TECHS, self.column_str_int("K"))?;
+
+        if tech_unlocked.is_empty() || tech_unlocked == 0 {
+            return Ok(String::new());
+        }
+
+        let tech_name = self.read_value_by_hour(TECHS, self.column_str_int("CA"))?;
+
+        Ok(format!("You have unlocked {}.\n", tech_name))
     }
 
     fn daily_platinum_action(&mut self) -> Result<String, XlsxError> {
