@@ -1,5 +1,4 @@
 use calamine::{Data, DataType, Reader, Xlsx, XlsxError, open_workbook};
-use clap::value_parser;
 use std::{fs::File, io::BufReader, path::Path};
 // Using the phf crate for compile-time generated hash maps.
 // This is more efficient for static maps than std::collections::HashMap.
@@ -54,7 +53,7 @@ pub const SPELLS: &[(&str, &str)] = &[
 ];
 
 // Array of building names
-pub const BUILDING_NAMES: &'static [&'static str] = &[
+pub const BUILDING_NAMES: &[&str] = &[
     "Homes",
     "Alchemies",
     "Farms",
@@ -73,6 +72,11 @@ pub const BUILDING_NAMES: &'static [&'static str] = &[
     "Diamond Mines",
     "Schools",
     "Docks",
+];
+
+pub const DESTROY_BUILDING_COLUMNS: &[&str] = &[
+    "BW", "BX", "BY", "BZ", "CA", "CB", "CD", "CE", "CF", "CG", "CH", "CI", "CJ", "CK", "CL", "CM",
+    "CN", "CO",
 ];
 
 // Maps for explore and rezone lands, using phf_map! for compile-time maps.
@@ -423,7 +427,32 @@ impl GameLogGenerator {
     }
 
     fn destroy_buildings_action(&mut self) -> Result<String, XlsxError> {
-        Ok("not implemented yet".to_owned())
+        let mut sb = String::from("Destruction of ");
+        let mut added_items = 0u8;
+
+        for (index, col) in DESTROY_BUILDING_COLUMNS.iter().enumerate() {
+            let name = BUILDING_NAMES[index];
+            let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
+
+            if value.is_empty() || value == 0 {
+                continue;
+            }
+
+            if added_items > 0 {
+                sb.push_str(", ");
+            }
+
+            sb.push_str(&format!("{} {}", value, name));
+            added_items += 1;
+        }
+
+        if added_items == 0 {
+            return Ok(String::new());
+        }
+
+        sb.push_str(&format!(" is complete.\n"));
+
+        Ok(sb)
     }
 
     fn rezone_action(&mut self) -> Result<String, XlsxError> {
