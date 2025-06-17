@@ -460,7 +460,7 @@ impl GameLogGenerator {
     fn rezone_action(&mut self) -> Result<String, XlsxError> {
         let plat_cost = self.read_value_by_hour(REZONE, self.column_str_int("Y"))?;
 
-        if plat_cost.is_empty() || plat_cost == 0 {
+        if plat_cost.is_empty() || plat_cost == 0.0 {
             return Ok(String::new());
         }
 
@@ -474,7 +474,7 @@ impl GameLogGenerator {
         for (land_type, col) in REZONE_LANDS.into_iter() {
             let value = self.read_value_by_hour(REZONE, self.column_str_int(col))?;
 
-            if value.is_empty() || value == 0 {
+            if value.is_empty() || value == 0.0 {
                 continue;
             }
 
@@ -499,7 +499,7 @@ impl GameLogGenerator {
             let name = BUILDING_NAMES[index];
             let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
 
-            if value.is_empty() || value == 0 {
+            if value.is_empty() || value == 0.0 {
                 continue;
             }
 
@@ -527,15 +527,28 @@ impl GameLogGenerator {
     }
 
     fn train_units_action(&mut self) -> Result<String, XlsxError> {
-        let mut sb = String::from("Destruction of ");
+        let military_column = self.column_str_int("AG");
+        let mut sb = String::from("Training of ");
+
         let mut added_items = 0u8;
+        let mut draftees_count = 0u32;
+        let mut spies_count = 0u32;
+        let mut wizard_count = 0u32;
 
-        for (index, col) in DESTROY_BUILDING_COLUMNS.iter().enumerate() {
-            let name = BUILDING_NAMES[index];
-            let value = self.read_value_by_hour(CONSTRUCTION, self.column_str_int(col))?;
+        for index in 0..8 {
+            let name = self.read_value(MILITARY, military_column + index, 2)?;
+            let value = self.read_value_by_hour(MILITARY, military_column + index)?;
 
-            if value.is_empty() || value == 0 {
+            if value.is_empty() || value == 0.0 {
                 continue;
+            }
+
+            let value = value.as_i64().unwrap() as u32;
+
+            match index {
+                5 => spies_count += value,
+                7 => wizard_count += value,
+                _ => draftees_count += value,
             }
 
             if added_items > 0 {
@@ -550,9 +563,15 @@ impl GameLogGenerator {
             return Ok(String::new());
         }
 
-        sb.push_str(&format!(" is complete.\n"));
+        let plat_cost = self.read_value_by_hour(MILITARY, self.column_str_int("AS"))?;
+        let ore_cost = self.read_value_by_hour(MILITARY, self.column_str_int("AT"))?;
 
-        Ok(String::new())
+        sb.push_str(&format!(
+            " begun at a cost of {} platinum, {} ore, {} draftees, {} spies, and {} wizards.\n",
+            plat_cost, ore_cost, draftees_count, spies_count, wizard_count
+        ));
+
+        Ok(sb)
     }
 
     fn improvements_action(&mut self) -> Result<String, XlsxError> {
