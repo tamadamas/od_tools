@@ -1,7 +1,12 @@
 [package]
 name = "od_tools"
-version = "0.1.0"
+version = "2.0.0"
 edition = "2024"
+license-file = "LICENSE"
+description = "OpenDominion Sim Generator"
+homepage = "https://github.com/tamadamas/od_tools"
+repository = "https://github.com/tamadamas/od_tools"
+readme = "README.md"
 
 [dependencies]
 # For reading .xlsx/.xlsm files
@@ -14,12 +19,5 @@ chrono = "0.4.42"
 clap = { version = "4.5.52", features = ["derive"] }
 
 derive = "1.0.0"
+# Static HashMap
 phf = { version = "0.13.1", features = ["macros"] }
-regex = "1.12.2"
-
-# Serialize/deserialize
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-
-# For robust error handling
-thiserror = "2.0.17"

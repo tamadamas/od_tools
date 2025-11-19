@@ -17,7 +17,7 @@ Remember to open Excel sim before generation. ALl formulas should run and update
 Next will work for Linux and Mac
 
 ```
-sim generate_log -sim OpenDominionSim.xlsm -result sim.txt
+sim generate_log generate-log --sim sim.xlsx --result sim.txt
 ```
 
 Get file from [Yami-10/OD-Simulator](https://github.com/Yami-10/OD-Simulator)

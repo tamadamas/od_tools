@@ -1,0 +1,9 @@
+[tools]
+just = "1.43.1"
+
+[tasks.pre-commit]
+description = "Run checks"
+run = [
+    "cargo fmt --all -- --check",
+    "cargo clippy --all-targets --all-features -- -D warnings",
+]
