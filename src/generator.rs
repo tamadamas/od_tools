@@ -135,7 +135,7 @@ impl GameLogGenerator {
 
         if let Some(hr) = specific_hour {
             self.set_current_hour(hr);
-            return Ok(self.execute_actions_for_current_hour()?);
+            return self.execute_actions_for_current_hour();
         }
 
         for hr in 1..=LAST_HOUR {
@@ -365,14 +365,14 @@ impl GameLogGenerator {
         add_item("ore", ore_value);
         add_item("gems", gems_value);
 
-        if traded_items.len() > 0 {
+        if !traded_items.is_empty() {
             sb.push_str(&format!(
                 "{} have been traded for ",
                 traded_items.join(" and ")
             ));
         }
 
-        if received_items.len() > 0 {
+        if !received_items.is_empty() {
             sb.push_str(&format!("{}.\n", received_items.join(" and ")));
         }
 
@@ -452,7 +452,7 @@ impl GameLogGenerator {
             return Ok(String::new());
         }
 
-        sb.push_str(&format!(" is complete.\n"));
+        sb.push_str(" is complete.\n");
 
         Ok(sb)
     }
@@ -486,7 +486,7 @@ impl GameLogGenerator {
             added_items += 1;
         }
 
-        sb.push_str(&format!(".\n"));
+        sb.push_str(".\n");
 
         Ok(sb)
     }
@@ -598,14 +598,14 @@ impl GameLogGenerator {
             return Ok(String::new());
         }
 
-        sb.push_str(&format!(" is complete.\n"));
+        sb.push_str(" is complete.\n");
 
         Ok(String::new())
     }
 
     // Read value in row with a current hour as BY{symHour}
     fn read_value_by_hour(&mut self, sheet: &str, column: usize) -> Result<Data, XlsxError> {
-        Ok(self.read_value(sheet, column, self.sim_hour)?)
+        self.read_value(sheet, column, self.sim_hour)
     }
 
     // Read value from cell in format B15
