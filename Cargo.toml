@@ -21,3 +21,8 @@ clap = { version = "4.5.52", features = ["derive"] }
 derive = "1.0.0"
 # Static HashMap
 phf = { version = "0.13.1", features = ["macros"] }
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
