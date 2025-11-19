@@ -632,9 +632,10 @@ impl<'a> GameLogGenerator<'a> {
     // Read value from cell in format B15
     fn read_value(&mut self, sheet: &str, column: usize, row: usize) -> Result<Data, XlsxError> {
         if let Some(range) = self.sheets.get(sheet)
-            && let Some(value) = range.get((row.saturating_sub(1), column.saturating_sub(1))) {
-                return Ok(value.clone());
-            }
+            && let Some(value) = range.get((row.saturating_sub(1), column.saturating_sub(1)))
+        {
+            return Ok(value.clone());
+        }
 
         Ok(Data::Empty)
     }
