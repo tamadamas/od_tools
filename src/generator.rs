@@ -1,5 +1,7 @@
-use calamine::{Data, DataType, Reader, Xlsx, XlsxError, open_workbook};
+use calamine::{Data, DataType, Range, Reader, Xlsx, XlsxError, open_workbook};
+use std::collections::HashMap;
 use std::{fs::File, io::BufReader, path::Path};
+
 // Using the phf crate for compile-time generated hash maps.
 // This is more efficient for static maps than std::collections::HashMap.
 use phf::phf_map;
@@ -19,6 +21,19 @@ pub const MAGIC: &str = "Magic";
 pub const TECHS: &str = "Techs";
 pub const IMPS: &str = "Imps";
 
+pub const SHEETS: [&str; 10] = [
+    OVERVIEW,
+    POPULATION,
+    PRODUCTION,
+    CONSTRUCTION,
+    EXPLORE,
+    REZONE,
+    MILITARY,
+    MAGIC,
+    TECHS,
+    IMPS,
+];
+
 // Magic spell names (string constants)
 pub const GAIAS_WATCH: &str = "Gaia's Watch";
 pub const MINING_STRENGTH: &str = "Mining Strength";
@@ -32,7 +47,7 @@ pub const RACIAL_SPELL: &str = "Racial Spell";
 pub const PLAT_AWARDED_MULT: u8 = 4;
 pub const LAND_BONUS: u8 = 20;
 
-pub const SPELLS: &[(&str, &str)] = &[
+pub const SPELLS: [(&str, &str); 15] = [
     (GAIAS_WATCH, "G"),
     (MINING_STRENGTH, "H"),
     (ARES_CALL, "I"),
@@ -51,7 +66,7 @@ pub const SPELLS: &[(&str, &str)] = &[
 ];
 
 // Array of building names
-pub const BUILDING_NAMES: &[&str] = &[
+pub const BUILDING_NAMES: [&str; 18] = [
     "Homes",
     "Alchemies",
     "Farms",
@@ -72,12 +87,12 @@ pub const BUILDING_NAMES: &[&str] = &[
     "Docks",
 ];
 
-pub const DESTROY_BUILDING_COLUMNS: &[&str] = &[
+pub const DESTROY_BUILDING_COLUMNS: [&str; 18] = [
     "BW", "BX", "BY", "BZ", "CA", "CB", "CD", "CE", "CF", "CG", "CH", "CI", "CJ", "CK", "CL", "CM",
     "CN", "CO",
 ];
 
-pub const CREATE_BUILDING_COLUMNS: &[&str] = &[
+pub const CREATE_BUILDING_COLUMNS: [&str; 18] = [
     "O", "P", "Q", "R", "S", "T", "V", "W", "X", "Y", "Z", "AA", "AB", "AC", "AD", "AE", "AF", "AG",
 ];
 
@@ -104,19 +119,28 @@ pub const REZONE_LANDS: phf::Map<&'static str, &'static str> = phf_map! {
     "Water" => "R",
 };
 
-pub struct GameLogGenerator {
-    workbook: Xlsx<BufReader<File>>,
+pub struct GameLogGenerator<'a> {
+    sheets: HashMap<&'a str, Range<Data>>,
     current_hour: usize,
     sim_hour: usize,
 }
 
-impl GameLogGenerator {
+impl<'a> GameLogGenerator<'a> {
     /// Creates a new generator and loads the Excel file.
     pub fn new(path: &Path) -> Result<Self, XlsxError> {
-        let workbook = open_workbook(path)?;
+        let mut workbook: Xlsx<BufReader<File>> = open_workbook(path)?;
+        let mut sheets = HashMap::new();
 
+        for name in SHEETS {
+            if let Ok(range) = workbook.worksheet_range(name) {
+                sheets.insert(name, range);
+            } else {
+                // Optional: Handle missing sheets or log a warning
+                println!("Warning: Sheet {} not found", name);
+            }
+        }
         Ok(Self {
-            workbook,
+            sheets,
             current_hour: 0,
             sim_hour: 0,
         })
@@ -153,7 +177,7 @@ impl GameLogGenerator {
 
     /// Executes all action methods for the currently set hour.
     fn execute_actions_for_current_hour(&mut self) -> Result<String, XlsxError> {
-        let mut output = String::new();
+        let mut output = String::with_capacity(30_000);
 
         let actions = [
             self.tick_action()?,
@@ -173,13 +197,10 @@ impl GameLogGenerator {
         ];
 
         for action_result in actions.iter().filter(|s| !s.is_empty()) {
-            // DEBUG code: remove after implementing all methods
-            if action_result != "not implemented yet" {
-                output.push_str(dbg!(action_result));
+            output.push_str(action_result);
 
-                if !action_result.ends_with('\n') {
-                    output.push('\n');
-                }
+            if !action_result.ends_with('\n') {
+                output.push('\n');
             }
         }
 
@@ -610,13 +631,13 @@ impl GameLogGenerator {
 
     // Read value from cell in format B15
     fn read_value(&mut self, sheet: &str, column: usize, row: usize) -> Result<Data, XlsxError> {
-        let range = self.workbook.worksheet_range(sheet)?;
-        let cell_value = range.get((row - 1, column - 1));
-
-        match cell_value {
-            Some(value) => Ok(value.clone()),
-            None => Ok(Data::Empty),
+        if let Some(range) = self.sheets.get(sheet) {
+            if let Some(value) = range.get((row.saturating_sub(1), column.saturating_sub(1))) {
+                return Ok(value.clone());
+            }
         }
+
+        Ok(Data::Empty)
     }
 
     fn column_str_int(&self, column: &str) -> usize {

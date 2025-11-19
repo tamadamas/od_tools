@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use std::fs;
 use std::path::PathBuf;
 
 mod generator;
@@ -40,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let output = generator.execute(hour)?;
 
             if let Some(result_path) = result {
-                std::fs::write(&result_path, output)?;
+                fs::write(&result_path, output)?;
                 println!("Successfully wrote result to {:?}", result_path);
             } else {
                 println!("{}", output);
